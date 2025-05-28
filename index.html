@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoarders Be Gone - Image to STL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile when scrolling within modal */
+        }
+        /* For Inter font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        .loader {
+            border: 5px solid #f3f3f3; /* Light grey */
+            border-top: 5px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom scrollbar for modal content if needed */
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3498db;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3498db;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col items-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl bg-white shadow-xl rounded-lg p-6 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-600">Hoarders Be Gone</h1>
+            <p class="text-lg text-gray-600 mt-1">Convert Your Images to 3D Printable STL Files</p>
+        </header>
+
+        <section id="uploadSection" class="mb-6">
+            <label for="imageUpload" class="block text-sm font-medium text-gray-700 mb-2">1. Upload Image (JPG or PNG):</label>
+            <input type="file" id="imageUpload" accept="image/jpeg, image/png" class="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100 cursor-pointer
+            ">
+            <div id="imagePreviewContainer" class="mt-4 border-2 border-dashed border-gray-300 rounded-md p-4 min-h-[200px] flex justify-center items-center bg-gray-50 hidden">
+                <img id="imagePreview" src="#" alt="Image Preview" class="max-w-full max-h-64 rounded"/>
+            </div>
+        </section>
+
+        <section id="controlsSection" class="mb-6 hidden">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">2. Adjust Settings:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="extrusionDepth" class="block text-sm font-medium text-gray-700">Max Extrusion Depth (mm): <span id="extrusionDepthValue">10</span></label>
+                    <input type="range" id="extrusionDepth" min="1" max="50" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label for="baseThickness" class="block text-sm font-medium text-gray-700">Base Thickness (mm): <span id="baseThicknessValue">1</span></label>
+                    <input type="range" id="baseThickness" min="0" max="10" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                 <div>
+                    <label for="smoothing" class="block text-sm font-medium text-gray-700">Smoothing (pixels): <span id="smoothingValue">0</span></label>
+                    <input type="range" id="smoothing" min="0" max="5" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="flex items-center space-x-3">
+                     <input type="checkbox" id="invertHeight" class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="invertHeight" class="text-sm font-medium text-gray-700">Invert Height (Dark = High)</label>
+                </div>
+                <div>
+                    <label for="outputResolution" class="block text-sm font-medium text-gray-700">Processing Detail: <span id="outputResolutionValue">128</span>x<span id="outputResolutionValue2">128</span></label>
+                    <select id="outputResolution" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="64">Low (64x64)</option>
+                        <option value="128" selected>Medium (128x128)</option>
+                        <option value="256">High (256x256)</option>
+                        <option value="384">Very High (384x384) - Slower</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section id="actionSection" class="mb-6 text-center">
+            <button id="convertToSTLButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                3. Generate STL
+            </button>
+            <div id="loader" class="loader hidden mt-4"></div>
+        </section>
+
+        <section id="statusSection" class="mb-6">
+            <div id="userMessages" class="p-4 rounded-md text-sm"></div>
+        </section>
+
+        <section id="downloadSection" class="text-center hidden">
+            <a id="downloadLink" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-150 ease-in-out inline-block">
+                Download STL File
+            </a>
+            <p class="text-xs text-gray-500 mt-2">Model dimensions will be relative to processing detail. Scale in your slicer.</p>
+        </section>
+
+        <footer class="text-center mt-10 pt-6 border-t border-gray-200">
+            <p class="text-sm text-gray-500">&copy; <span id="currentYear"></span> Hoarders Be Gone. Happy printing!</p>
+            <p class="text-xs text-gray-400 mt-1">Tip: For best results, use images with good contrast. Lighter areas typically become higher.</p>
+        </footer>
+    </div>
+
+    <div id="infoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden p-4">
+        <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Information</h3>
+                <div class="mt-2 px-7 py-3 modal-content max-h-[60vh] overflow-y-auto">
+                    <p class="text-sm text-gray-500" id="modalMessage">Detailed information here.</p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="closeModalButton" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Got it!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // DOM Elements
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const controlsSection = document.getElementById('controlsSection');
+        const convertToSTLButton = document.getElementById('convertToSTLButton');
+        const loader = document.getElementById('loader');
+        const userMessages = document.getElementById('userMessages');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadLink = document.getElementById('downloadLink');
+        const currentYear = document.getElementById('currentYear');
+
+        const extrusionDepthInput = document.getElementById('extrusionDepth');
+        const extrusionDepthValue = document.getElementById('extrusionDepthValue');
+        const baseThicknessInput = document.getElementById('baseThickness');
+        const baseThicknessValue = document.getElementById('baseThicknessValue');
+        const invertHeightCheckbox = document.getElementById('invertHeight');
+        const smoothingInput = document.getElementById('smoothing');
+        const smoothingValue = document.getElementById('smoothingValue');
+        const outputResolutionSelect = document.getElementById('outputResolution');
+        const outputResolutionValue = document.getElementById('outputResolutionValue');
+        const outputResolutionValue2 = document.getElementById('outputResolutionValue2');
+
+
+        // Modal Elements
+        const infoModal = document.getElementById('infoModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeModalButton = document.getElementById('closeModalButton');
+
+        let originalImage = null;
+        currentYear.textContent = new Date().getFullYear();
+
+        // Event Listeners for controls
+        extrusionDepthInput.addEventListener('input', (e) => extrusionDepthValue.textContent = e.target.value);
+        baseThicknessInput.addEventListener('input', (e) => baseThicknessValue.textContent = e.target.value);
+        smoothingInput.addEventListener('input', (e) => smoothingValue.textContent = e.target.value);
+        outputResolutionSelect.addEventListener('input', (e) => {
+            outputResolutionValue.textContent = e.target.value;
+            outputResolutionValue2.textContent = e.target.value;
+        });
+
+
+        // Modal functions
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.innerHTML = message; // Use innerHTML to allow basic HTML formatting
+            infoModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function hideModal() {
+            infoModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        closeModalButton.addEventListener('click', hideModal);
+        // Close modal if clicking outside of it
+        infoModal.addEventListener('click', (event) => {
+            if (event.target === infoModal) {
+                hideModal();
+            }
+        });
+
+
+        function displayMessage(message, type = 'info') {
+            userMessages.innerHTML = message;
+            userMessages.classList.remove('bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-blue-100', 'text-blue-700', 'bg-yellow-100', 'text-yellow-700');
+            // The line that unconditionally hid the download section has been removed from here.
+            // downloadSection.classList.add('hidden'); // <-- REMOVED
+
+            switch (type) {
+                case 'error':
+                    userMessages.classList.add('bg-red-100', 'text-red-700');
+                    break;
+                case 'success':
+                    userMessages.classList.add('bg-green-100', 'text-green-700');
+                    break;
+                case 'warning':
+                     userMessages.classList.add('bg-yellow-100', 'text-yellow-700');
+                    break;
+                default: // info
+                    userMessages.classList.add('bg-blue-100', 'text-blue-700');
+            }
+        }
+
+        imageUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                    displayMessage('Unsupported file type. Please upload a JPG or PNG image.', 'error');
+                    showModal('File Type Error', 'Please upload a valid JPG or PNG image file. Other formats are not currently supported.');
+                    imagePreviewContainer.classList.add('hidden');
+                    controlsSection.classList.add('hidden');
+                    convertToSTLButton.disabled = true;
+                    downloadSection.classList.add('hidden'); // Ensure download section is hidden
+                    originalImage = null;
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    originalImage = new Image();
+                    originalImage.onload = () => {
+                        // Basic validation
+                        if (originalImage.width === 0 || originalImage.height === 0) {
+                             displayMessage('Image seems corrupted or invalid. Please try another one.', 'error');
+                             showModal('Image Error', 'The uploaded image could not be loaded properly. It might be corrupted or have zero dimensions. Please try a different image.');
+                             imagePreviewContainer.classList.add('hidden');
+                             controlsSection.classList.add('hidden');
+                             convertToSTLButton.disabled = true;
+                             downloadSection.classList.add('hidden'); // Ensure download section is hidden
+                             originalImage = null;
+                             return;
+                        }
+
+                        imagePreview.src = e.target.result;
+                        imagePreviewContainer.classList.remove('hidden');
+                        controlsSection.classList.remove('hidden');
+                        convertToSTLButton.disabled = false;
+                        displayMessage('Image loaded. Adjust settings and click "Generate STL".', 'success');
+                        downloadSection.classList.add('hidden'); // Hide download section for new image
+
+                        // Simple contrast check
+                        if (originalImage.width > 10 && originalImage.height > 10) {
+                            const tempCanvas = document.createElement('canvas');
+                            const tempCtx = tempCanvas.getContext('2d');
+                            tempCanvas.width = Math.min(originalImage.width, 100);
+                            tempCanvas.height = Math.min(originalImage.height, 100);
+                            tempCtx.drawImage(originalImage, 0, 0, tempCanvas.width, tempCanvas.height);
+                            try {
+                                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                                let minBrightness = 255, maxBrightness = 0;
+                                for (let i = 0; i < imageData.data.length; i += 4) {
+                                    const brightness = 0.299 * imageData.data[i] + 0.587 * imageData.data[i+1] + 0.114 * imageData.data[i+2];
+                                    if (brightness < minBrightness) minBrightness = brightness;
+                                    if (brightness > maxBrightness) maxBrightness = brightness;
+                                }
+                                if (maxBrightness - minBrightness < 20) {
+                                    displayMessage('Warning: Image has very low contrast. The 3D model may lack detail. Try an image with more distinct light/dark areas.', 'warning');
+                                    showModal('Low Contrast Warning', 'The uploaded image appears to have very low contrast. This might result in a very flat or featureless 3D model. <br><br><strong>Suggestions:</strong><ul><li class="list-disc ml-5">Use an image with clearer distinctions between light and dark areas.</li><li class="list-disc ml-5">Consider editing the image to increase its contrast before uploading.</li></ul>');
+                                }
+                            } catch (err) {
+                                console.warn("Could not perform contrast check:", err);
+                            }
+                        }
+
+                        if (originalImage.width > 2000 || originalImage.height > 2000) {
+                             displayMessage('Warning: Image is very large. Processing might be slow. Higher "Processing Detail" settings will also increase time.', 'warning');
+                             showModal('Large Image Warning', 'The uploaded image is quite large. While the tool will attempt to process it, using high "Processing Detail" settings might be slow or cause the browser to become unresponsive.<br><br><strong>Suggestion:</strong> Consider resizing the image to a smaller dimension (e.g., under 1000x1000 pixels) for faster processing, especially on mobile devices.');
+                        }
+
+
+                    };
+                    originalImage.onerror = () => {
+                        displayMessage('Failed to load image. It might be corrupted or an unsupported format.', 'error');
+                        showModal('Image Load Error', 'There was an error trying to load the image. Please ensure it is a valid JPG or PNG file and not corrupted.');
+                        imagePreviewContainer.classList.add('hidden');
+                        controlsSection.classList.add('hidden');
+                        convertToSTLButton.disabled = true;
+                        downloadSection.classList.add('hidden'); // Ensure download section is hidden
+                        originalImage = null;
+                    };
+                    originalImage.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        convertToSTLButton.addEventListener('click', function() {
+            if (!originalImage) {
+                displayMessage('Please upload an image first.', 'error');
+                showModal('No Image', 'You need to upload an image before it can be converted to STL.');
+                return;
+            }
+
+            loader.classList.remove('hidden');
+            convertToSTLButton.disabled = true;
+            displayMessage('Processing image... This may take a moment, especially for high detail.', 'info');
+            downloadSection.classList.add('hidden'); // Hide download section before processing starts
+
+            // Use a timeout to allow the UI to update (show loader) before intensive processing
+            setTimeout(() => {
+                try {
+                    const stlData = generateSTLFromImage(originalImage);
+                    const blob = new Blob([stlData], { type: 'application/sla' }); // or 'model/stl'
+                    const url = URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    
+                    let filename = "model.stl";
+                    if (imageUpload.files[0] && imageUpload.files[0].name) {
+                        filename = imageUpload.files[0].name.split('.')[0].replace(/[^a-z0-9_.-]/gi, '_') + '.stl';
+                    }
+                    downloadLink.download = filename;
+
+                    downloadSection.classList.remove('hidden'); // Show download section on success
+                    displayMessage('STL file generated successfully! Click below to download.', 'success');
+                } catch (error) {
+                    console.error("STL Generation Error:", error);
+                    displayMessage(`Error generating STL: ${error.message}. Check console for details.`, 'error');
+                    showModal('Conversion Error', `An error occurred during STL generation: <br><br><em>${error.message}</em><br><br>This can sometimes happen with very complex images or unexpected image data. Try adjusting settings or using a different image.`);
+                    downloadSection.classList.add('hidden'); // Explicitly hide download section on error
+                } finally {
+                    loader.classList.add('hidden');
+                    convertToSTLButton.disabled = false;
+                }
+            }, 50); // Short delay
+        });
+
+        function generateSTLFromImage(img) {
+            const extrusionDepth = parseFloat(extrusionDepthInput.value);
+            const baseThickness = parseFloat(baseThicknessInput.value);
+            const invert = invertHeightCheckbox.checked;
+            const smoothing = parseInt(smoothingInput.value);
+            const outputRes = parseInt(outputResolutionSelect.value);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Determine processing dimensions while maintaining aspect ratio
+            let procWidth, procHeight;
+            if (img.width > img.height) {
+                procWidth = outputRes;
+                procHeight = Math.round(outputRes * (img.height / img.width));
+            } else {
+                procHeight = outputRes;
+                procWidth = Math.round(outputRes * (img.width / img.height));
+            }
+            procHeight = Math.max(1, procHeight); // Ensure not zero
+            procWidth = Math.max(1, procWidth);   // Ensure not zero
+
+
+            canvas.width = procWidth;
+            canvas.height = procHeight;
+
+            if (smoothing > 0) {
+                ctx.filter = `blur(${smoothing}px)`;
+            }
+            ctx.drawImage(img, 0, 0, procWidth, procHeight);
+            ctx.filter = 'none'; // Reset filter
+
+            const imageData = ctx.getImageData(0, 0, procWidth, procHeight);
+            const data = imageData.data;
+
+            // The actual model dimensions in "mm" (or units of your choice)
+            // We can scale the output XY dimensions to be somewhat sensible, e.g., max 100mm
+            const modelScaleFactor = 100 / Math.max(procWidth, procHeight); 
+            const modelWidth = procWidth * modelScaleFactor;
+            const modelHeight = procHeight * modelScaleFactor;
+
+
+            let stl = "solid image_to_stl\n";
+
+            // Helper to add a facet (triangle)
+            function addFacet(v1, v2, v3) {
+                const p1 = {x:v1[0], y:v1[1], z:v1[2]};
+                const p2 = {x:v2[0], y:v2[1], z:v2[2]};
+                const p3 = {x:v3[0], y:v3[1], z:v3[2]};
+
+                const cb = {
+                    x: (p2.y - p1.y) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.y - p1.y),
+                    y: (p2.z - p1.z) * (p3.x - p1.x) - (p2.x - p1.x) * (p3.z - p1.z),
+                    z: (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x)
+                };
+                const mag = Math.sqrt(cb.x*cb.x + cb.y*cb.y + cb.z*cb.z);
+                let nx=0, ny=0, nz=1; 
+                if (mag > 0) {
+                    nx = cb.x/mag;
+                    ny = cb.y/mag;
+                    nz = cb.z/mag;
+                }
+
+                stl += `facet normal ${nx.toFixed(6)} ${ny.toFixed(6)} ${nz.toFixed(6)}\n`; // Increased precision for normals
+                stl += "  outer loop\n";
+                stl += `    vertex ${v1[0].toFixed(3)} ${v1[1].toFixed(3)} ${v1[2].toFixed(3)}\n`;
+                stl += `    vertex ${v2[0].toFixed(3)} ${v2[1].toFixed(3)} ${v2[2].toFixed(3)}\n`;
+                stl += `    vertex ${v3[0].toFixed(3)} ${v3[1].toFixed(3)} ${v3[2].toFixed(3)}\n`;
+                stl += "  endloop\n";
+                stl += "endfacet\n";
+            }
+
+            // Create heightmap (Z values)
+            const heightMap = [];
+            for (let y = 0; y < procHeight; y++) {
+                heightMap[y] = [];
+                for (let x = 0; x < procWidth; x++) {
+                    const i = (y * procWidth + x) * 4;
+                    let brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                    if (invert) {
+                        brightness = 255 - brightness;
+                    }
+                    heightMap[y][x] = (brightness / 255) * extrusionDepth + baseThickness;
+                }
+            }
+
+            // Top surface
+            for (let y = 0; y < procHeight - 1; y++) {
+                for (let x = 0; x < procWidth - 1; x++) {
+                    const x0_model = x * modelScaleFactor;
+                    const y0_model = (procHeight - 1 - y) * modelScaleFactor; 
+                    const x1_model = (x + 1) * modelScaleFactor;
+                    const y1_model = (procHeight - 1 - (y + 1)) * modelScaleFactor;
+
+                    const v1 = [x0_model, y0_model, heightMap[y][x]];       
+                    const v2 = [x1_model, y0_model, heightMap[y][x+1]];     
+                    const v3 = [x0_model, y1_model, heightMap[y+1][x]];     
+                    const v4 = [x1_model, y1_model, heightMap[y+1][x+1]];   
+
+                    addFacet(v1, v2, v4); 
+                    addFacet(v1, v4, v3); 
+                }
+            }
+            
+            if (baseThickness > 0) {
+                const z_base = 0; 
+                // Bottom surface - ensure correct winding for outward normal (e.g., -Z)
+                const v_b_bl = [0, 0, z_base]; // bottom-left
+                const v_b_br = [modelWidth, 0, z_base]; // bottom-right
+                const v_b_tl = [0, modelHeight, z_base]; // top-left
+                const v_b_tr = [modelWidth, modelHeight, z_base]; // top-right
+                
+                addFacet(v_b_bl, v_b_br, v_b_tr); // Triangle 1 of base
+                addFacet(v_b_bl, v_b_tr, v_b_tl); // Triangle 2 of base
+
+                // Side walls
+                // Top edge (image y=0, model y=modelHeight)
+                for (let x = 0; x < procWidth - 1; x++) {
+                    const x0 = x * modelScaleFactor;
+                    const x1 = (x + 1) * modelScaleFactor;
+                    const y_m = modelHeight;
+
+                    const v_t1 = [x0, y_m, heightMap[0][x]];
+                    const v_t2 = [x1, y_m, heightMap[0][x+1]];
+                    const v_b1 = [x0, y_m, z_base];
+                    const v_b2 = [x1, y_m, z_base];
+                    addFacet(v_t1, v_b1, v_b2); // Wall quad triangle 1
+                    addFacet(v_t1, v_b2, v_t2); // Wall quad triangle 2
+                }
+                // Bottom edge (image y=procHeight-1, model y=0)
+                for (let x = 0; x < procWidth - 1; x++) {
+                    const x0 = x * modelScaleFactor;
+                    const x1 = (x + 1) * modelScaleFactor;
+                    const y_m = 0;
+
+                    const v_t1 = [x0, y_m, heightMap[procHeight-1][x]];
+                    const v_t2 = [x1, y_m, heightMap[procHeight-1][x+1]];
+                    const v_b1 = [x0, y_m, z_base];
+                    const v_b2 = [x1, y_m, z_base];
+                    addFacet(v_t1, v_b2, v_b1); // Note winding for outward normal
+                    addFacet(v_t1, v_t2, v_b2); // Note winding
+                }
+                // Left edge (image x=0, model x=0)
+                for (let y = 0; y < procHeight - 1; y++) {
+                    const y0_m = (procHeight - 1 - y) * modelScaleFactor;
+                    const y1_m = (procHeight - 1 - (y+1)) * modelScaleFactor;
+                    const x_m = 0;
+
+                    const v_t1 = [x_m, y0_m, heightMap[y][0]];
+                    const v_t2 = [x_m, y1_m, heightMap[y+1][0]];
+                    const v_b1 = [x_m, y0_m, z_base];
+                    const v_b2 = [x_m, y1_m, z_base];
+                    addFacet(v_t1, v_b1, v_b2); // Note winding
+                    addFacet(v_t1, v_b2, v_t2); // Note winding
+                }
+                // Right edge (image x=procWidth-1, model x=modelWidth)
+                 for (let y = 0; y < procHeight - 1; y++) {
+                    const y0_m = (procHeight - 1 - y) * modelScaleFactor;
+                    const y1_m = (procHeight - 1 - (y+1)) * modelScaleFactor;
+                    const x_m = modelWidth;
+
+                    const v_t1 = [x_m, y0_m, heightMap[y][procWidth-1]];
+                    const v_t2 = [x_m, y1_m, heightMap[y+1][procWidth-1]];
+                    const v_b1 = [x_m, y0_m, z_base];
+                    const v_b2 = [x_m, y1_m, z_base];
+                    addFacet(v_t1, v_b2, v_b1); // Note winding
+                    addFacet(v_t1, v_t2, v_b2); // Note winding
+                }
+            }
+
+            stl += "endsolid image_to_stl\n";
+            return stl;
+        }
+
+        // Initial setup
+        displayMessage('Welcome! Upload an image to get started.', 'info');
+        outputResolutionValue.textContent = outputResolutionSelect.value; // Init display
+        outputResolutionValue2.textContent = outputResolutionSelect.value; // Init display
+
+    </script>
+</body>
+</html>
